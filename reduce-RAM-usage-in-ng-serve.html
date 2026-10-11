@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<!-- saved from url=(0094)file:///home/pc1/Documents/Codex/2026-10-05/x20/outputs/angular-serve-memory-optimization.html -->
+<html lang="fa" dir="rtl"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>کاهش مصرف RAM در ng serve</title>
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#596579; --blue:#155eef; --bg:#f5f7fb; --card:#fff; --line:#dfe5ef; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family: Tahoma, Arial, sans-serif; line-height:1.9; }
+    main { max-width:900px; margin:40px auto; padding:0 20px 48px; }
+    article { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:34px 42px; box-shadow:0 8px 30px #1720330d; }
+    h1 { margin-top:0; color:#102a56; font-size:29px; }
+    h2 { margin-top:30px; color:#173b78; font-size:21px; border-bottom:1px solid var(--line); padding-bottom:8px; }
+    p, li { font-size:16px; }
+    code, pre { direction:ltr; text-align:left; font-family: Consolas, monospace; }
+    code { background:#eef2f8; color:#172033; padding:2px 6px; border-radius:5px; }
+    pre { background:#111827 !important; color:#f3f7ff !important; padding:16px 18px; border-radius:10px; overflow:auto; line-height:1.55; }
+    pre code { background:transparent !important; color:#f3f7ff !important; padding:0; border-radius:0; white-space:pre; }
+    .note { background:#eef6ff; border-right:4px solid var(--blue); padding:13px 16px; border-radius:8px; }
+    .warning { background:#fff8e6; border-right:4px solid #d99a00; padding:13px 16px; border-radius:8px; }
+    a { color:var(--blue); }
+    footer { color:var(--muted); font-size:13px; margin-top:24px; }
+    @media (max-width:600px) { main { margin:15px auto; padding:0 10px 25px; } article { padding:23px 20px; } h1 { font-size:24px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>کاهش مصرف RAM در <code>ng serve</code></h1>
+
+      <p>در این پروژه، مصرف بالای حافظه عمدتاً به ترکیب SSR، source map، prebundle و اندازه‌ی graph پروژه مربوط است.</p>
+
+      <h2>علت‌های اصلی</h2>
+      <ul>
+        <li>در <code>angular.json</code>، برای dev server گزینه‌های <code>server</code>، <code>ssr</code> و <code>outputMode: "server"</code> فعال هستند؛ بنابراین bundle مرورگر و سرور هر دو ساخته می‌شوند.</li>
+        <li><code>sourceMap</code> در حالت development فعال است.</li>
+        <li>Angular CLI cache خاموش است و prebundle مربوط به Vite/esbuild فشار بیشتری ایجاد می‌کند.</li>
+        <li>پروژه حدود ۳٬۳۷۹ فایل سورس و ۱۸۸MB asset دارد.</li>
+        <li><code>PreloadAllModules</code> بیشتر روی حافظه‌ی مرورگر اثر دارد و عامل اصلی مصرف RAM خود esbuild نیست.</li>
+      </ul>
+
+      <h2>۱. اولین تست پیشنهادی</h2>
+      <p>ابتدا prebundle را غیرفعال کنید:</p>
+      <pre><code>npx ng serve --configuration development --prebundle=false</code></pre>
+      <p>این کار معمولاً مصرف process جداگانه‌ی esbuild را کاهش می‌دهد؛ در عوض startup و بعضی rebuildها ممکن است کمی کندتر شوند.</p>
+
+      <h2>۲. فعال کردن cache</h2>
+      <p>در <code>angular.json</code>، تنظیم cache را به شکل زیر تغییر دهید:</p>
+      <pre><code>"cli": {
+    "analytics": false,
+    "cache": {
+        "enabled": true,
+        "environment": "local"
+    }
+}</code></pre>
+      <p>cache مستقیماً سقف RAM را تعیین نمی‌کند، اما باعث می‌شود prebundle و buildهای تکراری دوباره از ابتدا انجام نشوند.</p>
+
+      <h2>۳. راه‌حل مؤثرتر: target توسعه‌ی CSR</h2>
+      <p>برای کار روزمره یک target جداگانه‌ی client-only بسازید و در آن این گزینه‌ها را حذف کنید:</p>
+      <pre><code>"server": "src/main.server.ts",
+"ssr": {
+    "entry": "src/server.ts"
+},
+"outputMode": "server"</code></pre>
+      <p>سپس توسعه‌ی معمول را با target سبک‌تر اجرا کنید:</p>
+      <pre><code>npx ng run main-web-application:serve-client</code></pre>
+      <p>در این حالت process سرور Angular و بخش مهمی از graph مربوط به SSR ساخته نمی‌شود. برای تست SSR می‌توانید همچنان از target فعلی استفاده کنید.</p>
+
+      <h2>۴. محدود کردن heap Node</h2>
+      <pre><code>NODE_OPTIONS=--max-old-space-size=1536 \
+npx ng serve --prebundle=false</code></pre>
+      <div class="warning">این گزینه فقط heap مربوط به Node را محدود می‌کند؛ esbuild ممکن است حافظه‌ی native جداگانه مصرف کند. مقدار کم می‌تواند باعث خطای OOM شود، بنابراین این روش راه‌حل اصلی نیست.</div>
+
+      <h2>ترتیب پیشنهادی اجرا</h2>
+      <ol>
+        <li><code>--prebundle=false</code> را تست کنید.</li>
+        <li>Angular CLI cache را فعال کنید.</li>
+        <li>برای توسعه target مخصوص CSR اضافه کنید.</li>
+        <li>فقط در صورت نیاز <code>max-old-space-size</code> تعیین کنید.</li>
+      </ol>
+
+      <div class="note"><strong>جمع‌بندی:</strong> برای این پروژه، ساختن dev target بدون SSR بیشترین کاهش مصرف RAM را ایجاد می‌کند؛ خاموش کردن prebundle سریع‌ترین تست کم‌ریسک برای شروع است.</div>
+
+      <footer>
+        منابع: <a href="https://angular.dev/cli/serve">مستندات رسمی ng serve</a> و <a href="https://angular.dev/cli/cache">مستندات Angular CLI cache</a>
+      </footer>
+    </article>
+  </main>
+
+
+</body></html>
