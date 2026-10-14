@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>راهنمای نصب و راه‌اندازی Kitty Terminal</title>
+<style>
+  body {
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 20px;
+    line-height: 1.8;
+    color: #222;
+    background: #fafafa;
+  }
+  h1 {
+    border-bottom: 3px solid #2a78d6;
+    padding-bottom: 12px;
+  }
+  h2 {
+    margin-top: 40px;
+    color: #2a78d6;
+    border-right: 4px solid #2a78d6;
+    padding-right: 12px;
+  }
+  h3 {
+    color: #333;
+    margin-top: 24px;
+  }
+  code {
+    background: #eee;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "Consolas", monospace;
+    direction: ltr;
+    display: inline-block;
+  }
+  pre {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    direction: ltr;
+    text-align: left;
+    font-family: "Consolas", monospace;
+    font-size: 14px;
+  }
+  .note {
+    background: #fff8e1;
+    border-right: 4px solid #eda100;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+  }
+  .bug {
+    background: #fce8e6;
+    border-right: 4px solid #d03b3b;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+  }
+  .ok {
+    background: #e8f5e9;
+    border-right: 4px solid #0ca30c;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 4px;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+  }
+  td, th {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: right;
+  }
+  th {
+    background: #f0f0f0;
+  }
+</style>
+</head>
+<body>
+
+<h1>راهنمای نصب و راه‌اندازی Kitty Terminal</h1>
+<p>این راهنما بر اساس تجربه واقعی نصب Kitty روی اوبونتو (GNOME, Wayland) نوشته شده و مشکلاتی که در این مسیر پیش اومد و راه‌حل‌شون رو پوشش می‌ده.</p>
+
+<h2>۱. نصب Kitty</h2>
+<p>نصب با اسکریپت رسمی نصب انجام شد:</p>
+<pre>curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin</pre>
+<p>این دستور Kitty رو در مسیر زیر نصب می‌کنه:</p>
+<pre>~/.local/kitty.app/</pre>
+
+<div class="bug">
+<strong>مشکل:</strong> این روش نصب، باینری Kitty رو به <code>PATH</code> سیستم اضافه نمی‌کنه. یعنی دستور <code>kitty</code> به‌تنهایی در ترمینال کار نمی‌کنه و باید از مسیر کامل استفاده بشه:
+<pre>/home/pc1/.local/kitty.app/bin/kitty</pre>
+</div>
+
+<h2>۲. تغییر نام تب (Rename Tab)</h2>
+<p>برخلاف GNOME Terminal، در Kitty یک کلید میانبر پیش‌فرض برای این کار وجود داره، ولی در فایل کانفیگ پیش‌فرض به‌صورت <strong>کامنت‌شده (غیرفعال)</strong> قرار داره:</p>
+<pre># map --allow-fallback=shifted,ascii kitty_mod+alt+t set_tab_title</pre>
+<p>مقدار پیش‌فرض <code>kitty_mod</code> برابر <code>ctrl+shift</code> هست، یعنی کلید میانبر نهایی <code>Ctrl+Shift+Alt+T</code> می‌شه.</p>
+
+<h3>راه‌حل: فعال‌سازی دستی</h3>
+<pre>mkdir -p ~/.config/kitty
+echo "map ctrl+shift+alt+t set_tab_title" >> ~/.config/kitty/kitty.conf</pre>
+<p>بعد از این کار، Kitty رو ری‌استارت کن (یا با <code>Ctrl+Shift+F5</code> کانفیگ رو reload کن). حالا با زدن <code>Ctrl+Shift+Alt+T</code> یک پرامپت پایین صفحه باز می‌شه که می‌تونی اسم جدید تب رو بنویسی.</p>
+
+<div class="ok">✓ تست شد و با موفقیت کار کرد.</div>
+
+<h2>۳. اضافه کردن Kitty به نوار Favorites (GNOME)</h2>
+<p>بعد از نصب، Kitty در جستجوی Activities پیدا نمی‌شد و در نتیجه امکان "Add to Favorites" هم نبود. علت این بود که نصب‌کننده، فایل <code>.desktop</code> رو فقط داخل پوشه نصب می‌ذاره، نه در مسیری که GNOME اسکن می‌کنه.</p>
+
+<h3>مرحله ۱ — کپی فایل‌های desktop</h3>
+<pre>cp ~/.local/kitty.app/share/applications/kitty.desktop \
+   ~/.local/kitty.app/share/applications/kitty-open.desktop \
+   ~/.local/share/applications/</pre>
+
+<h3>مرحله ۲ — اصلاح مسیرها</h3>
+<p>فایل‌های desktop به‌صورت پیش‌فرض از نام‌های نسبی (<code>kitty</code>) استفاده می‌کنن که چون باینری در PATH نیست، باید به مسیر کامل تغییر کنن:</p>
+<table>
+<tr><th>کلید</th><th>مقدار قبلی</th><th>مقدار اصلاح‌شده</th></tr>
+<tr><td>Exec</td><td><code>kitty</code></td><td><code>/home/pc1/.local/kitty.app/bin/kitty</code></td></tr>
+<tr><td>Icon</td><td><code>kitty</code></td><td><code>/home/pc1/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png</code></td></tr>
+<tr><td>TryExec</td><td><code>kitty</code></td><td><code>/home/pc1/.local/kitty.app/bin/kitty</code></td></tr>
+</table>
+
+<div class="bug">
+<strong>نکته مهم (دلیل اصلی مشکل):</strong> اصلاح <code>Exec</code> و <code>Icon</code> به‌تنهایی کافی نبود. کلید <code>TryExec</code> هم باید اصلاح بشه چون GLib/GIO (موتوری که GNOME Shell برای جستجوی اپ‌ها استفاده می‌کنه) اگر مسیر <code>TryExec</code> پیدا نشه، <strong>کل entry رو به‌طور کامل نادیده می‌گیره</strong> — نه فقط مخفی می‌کنه، بلکه از لیست <code>Gio.AppInfo.get_all()</code> هم حذفش می‌کنه. این باگ ظریف، دلیل اصلی بود که حتی بعد از کپی فایل desktop، Kitty در جستجو ظاهر نمی‌شد.
+</div>
+
+<h3>مرحله ۳ — به‌روزرسانی دیتابیس</h3>
+<pre>update-desktop-database ~/.local/share/applications</pre>
+
+<h3>مرحله ۴ — تایید</h3>
+<p>برای اطمینان از اینکه GNOME واقعاً اپ رو می‌بینه (بدون نیاز به باز کردن منو):</p>
+<pre>python3 -c "
+import gi
+gi.require_version('Gio', '2.0')
+from gi.repository import Gio
+for a in Gio.AppInfo.get_all():
+    if 'kitty' in a.get_id().lower():
+        print(a.get_id(), '|', a.get_name(), '|', a.get_commandline())
+"</pre>
+
+<div class="note">
+<strong>نکته درباره Wayland:</strong> چون نشست GNOME از نوع Wayland بود، روش قدیمی ری‌استارت GNOME Shell با <code>Alt+F2</code> → <code>r</code> کار نمی‌کنه (این فقط روی X11 جواب می‌ده). در عمل، بعد از اصلاح <code>TryExec</code>، GNOME Shell بدون نیاز به logout دوباره فایل‌ها رو شناسایی کرد. اگر در حالت مشابه جواب نداد، راه‌حل قطعی خروج و ورود مجدد (logout/login) هست.
+</div>
+
+<div class="ok">✓ بعد از این مراحل، Kitty در جستجوی Activities ظاهر شد و امکان Add to Favorites فراهم شد.</div>
+
+<h2>خلاصه دستورات</h2>
+<pre># نصب
+curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
+
+# فعال‌سازی rename تب
+mkdir -p ~/.config/kitty
+echo "map ctrl+shift+alt+t set_tab_title" >> ~/.config/kitty/kitty.conf
+
+# یکپارچه‌سازی با دسکتاپ
+cp ~/.local/kitty.app/share/applications/kitty.desktop \
+   ~/.local/kitty.app/share/applications/kitty-open.desktop \
+   ~/.local/share/applications/
+
+sed -i "s|Exec=kitty|Exec=/home/pc1/.local/kitty.app/bin/kitty|g; \
+        s|TryExec=kitty|TryExec=/home/pc1/.local/kitty.app/bin/kitty|g; \
+        s|Icon=kitty|Icon=/home/pc1/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" \
+        ~/.local/share/applications/kitty.desktop ~/.local/share/applications/kitty-open.desktop
+
+update-desktop-database ~/.local/share/applications</pre>
+
+</body>
+</html>
