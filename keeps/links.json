@@ -1,0 +1,17 @@
+{
+  "categories": [
+    {
+      "name": "chrome extensions",
+      "links": [
+        {
+          "url": "https://chromewebstore.google.com/detail/mobile-view-%E2%80%94-mobile-simu/hocbjiaeeijekejepphjihbpogikmofh",
+          "title": "mobile view"
+        },
+        {
+          "url": "https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn",
+          "title": "claude"
+        }
+      ]
+    }
+  ]
+}
