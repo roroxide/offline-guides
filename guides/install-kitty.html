@@ -89,14 +89,24 @@
 
 <h2>۱. نصب Kitty</h2>
 <p>نصب با اسکریپت رسمی نصب انجام شد:</p>
-<pre>curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin</pre>
+<pre>sudo apt install -y curl desktop-file-utils
+curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin</pre>
 <p>این دستور Kitty رو در مسیر زیر نصب می‌کنه:</p>
 <pre>~/.local/kitty.app/</pre>
 
 <div class="bug">
 <strong>مشکل:</strong> این روش نصب، باینری Kitty رو به <code>PATH</code> سیستم اضافه نمی‌کنه. یعنی دستور <code>kitty</code> به‌تنهایی در ترمینال کار نمی‌کنه و باید از مسیر کامل استفاده بشه:
-<pre>/home/pc1/.local/kitty.app/bin/kitty</pre>
+<pre>~/.local/kitty.app/bin/kitty</pre>
 </div>
+
+<h3>راه‌حل: اضافه‌کردن باینری به PATH</h3>
+<p>مسیر مطلق home فقط مربوط به یک سیستم خاص است و نباید در فایل‌های desktop یا دستورات راهنما hard-code شود. برای اینکه فرمان <code>kitty</code> در ترمینال و فایل‌های desktop قابل اجرا باشد، یک symlink در <code>~/.local/bin</code> بساز:</p>
+<pre>mkdir -p ~/.local/bin
+ln -sfn ~/.local/kitty.app/bin/kitty ~/.local/bin/kitty
+hash -r
+kitty --version</pre>
+<p>اگر <code>~/.local/bin</code> در PATH نیست، آن را به <code>~/.profile</code> اضافه کن و یک shell جدید باز کن:</p>
+<pre>export PATH="$HOME/.local/bin:$PATH"</pre>
 
 <h2>۲. تغییر نام تب (Rename Tab)</h2>
 <p>برخلاف GNOME Terminal، در Kitty یک کلید میانبر پیش‌فرض برای این کار وجود داره، ولی در فایل کانفیگ پیش‌فرض به‌صورت <strong>کامنت‌شده (غیرفعال)</strong> قرار داره:</p>
@@ -113,43 +123,77 @@ echo "map ctrl+shift+alt+t set_tab_title" >> ~/.config/kitty/kitty.conf</pre>
 <h2>۳. اضافه کردن Kitty به نوار Favorites (GNOME)</h2>
 <p>بعد از نصب، Kitty در جستجوی Activities پیدا نمی‌شد و در نتیجه امکان "Add to Favorites" هم نبود. علت این بود که نصب‌کننده، فایل <code>.desktop</code> رو فقط داخل پوشه نصب می‌ذاره، نه در مسیری که GNOME اسکن می‌کنه.</p>
 
-<h3>مرحله ۱ — کپی فایل‌های desktop</h3>
-<pre>cp ~/.local/kitty.app/share/applications/kitty.desktop \
-   ~/.local/kitty.app/share/applications/kitty-open.desktop \
-   ~/.local/share/applications/</pre>
+<h3>روش پایدار برای Favorites</h3>
+<p>فایل desktop اصلی Kitty ممکنه هنگام اجرا دوباره تولید بشه؛ بنابراین آن را ویرایش نکن. یک entry مستقل بساز تا Kitty نتونه آن را بازنویسی کنه:</p>
+<pre>cat &gt; ~/.local/share/applications/kitty-local.desktop &lt;&lt;EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Kitty Terminal
+GenericName=Terminal emulator
+TryExec=$HOME/.local/bin/kitty
+Exec=$HOME/.local/bin/kitty --class kitty-local
+Icon=$HOME/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupNotify=true
+StartupWMClass=kitty-local
+EOF
+desktop-file-validate ~/.local/share/applications/kitty-local.desktop
+update-desktop-database ~/.local/share/applications</pre>
+<p>در این روش باید <code>kitty-local.desktop</code> را به Favorites اضافه کنی، نه <code>kitty.desktop</code>. در Activities عبارت <strong>Kitty Terminal</strong> را جست‌وجو کن، روی آن کلیک راست کن و <strong>Add to Favorites</strong> را بزن.</p>
 
-<h3>مرحله ۲ — اصلاح مسیرها</h3>
-<p>فایل‌های desktop به‌صورت پیش‌فرض از نام‌های نسبی (<code>kitty</code>) استفاده می‌کنن که چون باینری در PATH نیست، باید به مسیر کامل تغییر کنن:</p>
-<table>
-<tr><th>کلید</th><th>مقدار قبلی</th><th>مقدار اصلاح‌شده</th></tr>
-<tr><td>Exec</td><td><code>kitty</code></td><td><code>/home/pc1/.local/kitty.app/bin/kitty</code></td></tr>
-<tr><td>Icon</td><td><code>kitty</code></td><td><code>/home/pc1/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png</code></td></tr>
-<tr><td>TryExec</td><td><code>kitty</code></td><td><code>/home/pc1/.local/kitty.app/bin/kitty</code></td></tr>
-</table>
-
-<div class="bug">
-<strong>نکته مهم (دلیل اصلی مشکل):</strong> اصلاح <code>Exec</code> و <code>Icon</code> به‌تنهایی کافی نبود. کلید <code>TryExec</code> هم باید اصلاح بشه چون GLib/GIO (موتوری که GNOME Shell برای جستجوی اپ‌ها استفاده می‌کنه) اگر مسیر <code>TryExec</code> پیدا نشه، <strong>کل entry رو به‌طور کامل نادیده می‌گیره</strong> — نه فقط مخفی می‌کنه، بلکه از لیست <code>Gio.AppInfo.get_all()</code> هم حذفش می‌کنه. این باگ ظریف، دلیل اصلی بود که حتی بعد از کپی فایل desktop، Kitty در جستجو ظاهر نمی‌شد.
-</div>
-
-<h3>مرحله ۳ — به‌روزرسانی دیتابیس</h3>
-<pre>update-desktop-database ~/.local/share/applications</pre>
-
-<h3>مرحله ۴ — تایید</h3>
-<p>برای اطمینان از اینکه GNOME واقعاً اپ رو می‌بینه (بدون نیاز به باز کردن منو):</p>
-<pre>python3 -c "
-import gi
-gi.require_version('Gio', '2.0')
-from gi.repository import Gio
-for a in Gio.AppInfo.get_all():
-    if 'kitty' in a.get_id().lower():
-        print(a.get_id(), '|', a.get_name(), '|', a.get_commandline())
-"</pre>
+<h3>تایید</h3>
+<p>برای بررسی نصب و entry:</p>
+<pre>command -v kitty
+kitty --version
+desktop-file-validate ~/.local/share/applications/kitty-local.desktop
+test -x ~/.local/bin/kitty &amp;&amp; echo "Kitty executable is ready"</pre>
 
 <div class="note">
-<strong>نکته درباره Wayland:</strong> چون نشست GNOME از نوع Wayland بود، روش قدیمی ری‌استارت GNOME Shell با <code>Alt+F2</code> → <code>r</code> کار نمی‌کنه (این فقط روی X11 جواب می‌ده). در عمل، بعد از اصلاح <code>TryExec</code>، GNOME Shell بدون نیاز به logout دوباره فایل‌ها رو شناسایی کرد. اگر در حالت مشابه جواب نداد، راه‌حل قطعی خروج و ورود مجدد (logout/login) هست.
+<strong>نکته درباره Wayland:</strong> چون نشست GNOME از نوع Wayland بود، روش قدیمی ری‌استارت GNOME Shell با <code>Alt+F2</code> → <code>r</code> کار نمی‌کنه. اگر بعد از ساخت entry جدید، Activities آن را نشان نداد، یک‌بار logout/login کن. اگر <code>kitty-local.desktop</code> در Favorites است ولی آیکن قبلی باقی مانده، مورد قدیمی <code>kitty.desktop</code> را از Favorites حذف و entry جدید را اضافه کن.
 </div>
 
-<div class="ok">✓ بعد از این مراحل، Kitty در جستجوی Activities ظاهر شد و امکان Add to Favorites فراهم شد.</div>
+<div class="ok">✓ بعد از این مراحل، Kitty با فرمان مستقیم، Activities و Favorites قابل اجراست.</div>
+
+<h2>۴. اصلاح نصب موجود و آیکن Favorites</h2>
+<p>اگر Kitty نصب است ولی آیکن آن در Favorites عمومی یا شبیه Settings دیده می‌شود، ابتدا همه‌ی پنجره‌های Kitty را ببند و این بلوک را کامل در یک ترمینال اجرا کن:</p>
+<pre>set -e
+mkdir -p "$HOME/.local/bin" "$HOME/.local/share/applications"
+ln -sfn "$HOME/.local/kitty.app/bin/kitty" "$HOME/.local/bin/kitty"
+
+cat &gt; "$HOME/.local/share/applications/kitty-local.desktop" &lt;&lt;EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Kitty Terminal
+GenericName=Terminal emulator
+TryExec=$HOME/.local/bin/kitty
+Exec=$HOME/.local/bin/kitty --class kitty-local
+Icon=$HOME/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupNotify=true
+StartupWMClass=kitty-local
+EOF
+
+desktop-file-validate "$HOME/.local/share/applications/kitty-local.desktop"
+update-desktop-database "$HOME/.local/share/applications"
+
+favorite_apps="$(gsettings get org.gnome.shell favorite-apps)"
+if [[ "$favorite_apps" == *"'kitty-local.desktop'"* ]]; then
+    :
+elif [[ "$favorite_apps" == *"'kitty.desktop'"* ]]; then
+    favorite_apps="$(printf '%s\n' "$favorite_apps" | sed "s/'kitty.desktop'/'kitty-local.desktop'/")"
+else
+    favorite_apps="$(printf '%s\n' "$favorite_apps" | sed "s/]$/, 'kitty-local.desktop']/")"
+fi
+gsettings set org.gnome.shell favorite-apps "$favorite_apps"
+
+hash -r
+kitty --version
+echo "Kitty Favorites entry repaired"</pre>
+<p>بعد از اجرای موفق، Kitty را فقط از Favorites جدید باز کن. اگر Activities هنوز آیکن قبلی را نشان داد، یک‌بار logout/login انجام بده.</p>
 
 <h2>خلاصه دستورات</h2>
 <pre># نصب
@@ -159,16 +203,23 @@ curl -L https://sw.kovidgoyal.net/kitty/installer.sh | sh /dev/stdin
 mkdir -p ~/.config/kitty
 echo "map ctrl+shift+alt+t set_tab_title" >> ~/.config/kitty/kitty.conf
 
-# یکپارچه‌سازی با دسکتاپ
-cp ~/.local/kitty.app/share/applications/kitty.desktop \
-   ~/.local/kitty.app/share/applications/kitty-open.desktop \
-   ~/.local/share/applications/
-
-sed -i "s|Exec=kitty|Exec=/home/pc1/.local/kitty.app/bin/kitty|g; \
-        s|TryExec=kitty|TryExec=/home/pc1/.local/kitty.app/bin/kitty|g; \
-        s|Icon=kitty|Icon=/home/pc1/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png|g" \
-        ~/.local/share/applications/kitty.desktop ~/.local/share/applications/kitty-open.desktop
-
+# ساخت entry پایدار برای GNOME Favorites
+mkdir -p ~/.local/share/applications
+cat &gt; ~/.local/share/applications/kitty-local.desktop &lt;&lt;EOF
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Kitty Terminal
+GenericName=Terminal emulator
+TryExec=$HOME/.local/bin/kitty
+Exec=$HOME/.local/bin/kitty --class kitty-local
+Icon=$HOME/.local/kitty.app/share/icons/hicolor/256x256/apps/kitty.png
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupNotify=true
+StartupWMClass=kitty-local
+EOF
+desktop-file-validate ~/.local/share/applications/kitty-local.desktop
 update-desktop-database ~/.local/share/applications</pre>
 
 </body>
